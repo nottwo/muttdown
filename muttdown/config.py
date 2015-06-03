@@ -64,6 +64,8 @@ class Config(object):
         'smtp_timeout': 10,
         'css_file': None,
         'sendmail': '/usr/sbin/sendmail',
+        'template_dir': None,
+        'template': 'muttdown.tmpl',
     }
 
     def __init__(self):
