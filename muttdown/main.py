@@ -34,7 +34,7 @@ def convert_one(part, config):
         if config.css:
             md = '<style>' + config.css + '</style>' + md
             md = pynliner.fromString(md)
-        print(md)
+
         message = MIMEText(md, 'html')
         return message
     except Exception:
@@ -55,13 +55,19 @@ def convert_tree(message, config):
                 if part.get_content_type() != 'application/pgp-signature':
                     return convert_tree(part, config)
         else:
-            # it's multipart, but not signed. copy it!
+            # it's multipart, but not signed. copy it and preserve its headers
             new_root = MIMEMultipart(message.get_content_subtype(), message.get_charset())
+            for k, v in message.items():
+                if not k.startswith('Content-') or k.startswith('MIME'):
+                    new_root.add_header(k, v)
+                    del message[k]
+
             did_conversion = False
             for part in message.get_payload():
                 converted_part, this_did_conversion = convert_tree(part, config)
                 did_conversion |= this_did_conversion
                 new_root.attach(converted_part)
+
             return new_root, did_conversion
     else:
         # okay, this isn't a multipart type. If it's inline
@@ -71,23 +77,21 @@ def convert_tree(message, config):
         if disposition == 'inline' and ct in ('text/plain', 'text/markdown'):
             converted = convert_one(message, config)
         if converted is not None:
-            return converted, True
+            new_top = MIMEMultipart('alternative')
+            for k, v in message.items():
+                if not k.startswith('Content-') or k.startswith('MIME'):
+                    new_top.add_header(k, v)
+                    del message[k]
+            new_top.attach(message)
+            new_top.attach(converted)
+            return new_top, True
+
         return message, False
 
 
 def rebuild_multipart(mail, config):
     converted, did_any_markdown = convert_tree(mail, config)
-    if did_any_markdown:
-        new_top = MIMEMultipart('alternative')
-        for k, v in mail.items():
-            if not k.startswith('Content-') or k.startswith('MIME'):
-                new_top.add_header(k, v)
-                del mail[k]
-        new_top.attach(mail)
-        new_top.attach(converted)
-        return new_top
-    else:
-        return mail
+    return converted
 
 
 def smtp_connection(c):
