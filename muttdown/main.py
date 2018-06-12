@@ -35,7 +35,9 @@ def convert_one(part, config):
         text = re.sub('\s*!m\s*', '', text, re.M)
         if '\n-- \n' in text:
             pre_signature, signature = text.split('\n-- \n')
-            md = markdown.markdown(pre_signature, output_format="html5")
+            md = markdown.markdown(pre_signature, output_format="html5",
+                    extensions=["markdown.extensions.codehilite",
+                        "markdown.extensions.extra"])
             sig = markdown.markdown(signature, output_format="html5")
         else:
             md = markdown.markdown(text)
